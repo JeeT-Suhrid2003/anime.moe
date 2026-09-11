@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Season Timeline</title>
+<style>
+  :root{
+    --bg-0:#0e1018; --bg-1:#141726; --bg-2:#1b1f33; --bg-3:#232945;
+    --line:#262b42; --line-weak:#1e2236;
+    --text-0:#eef0f8; --text-1:#a7acc4; --text-2:#6b7090;
+    --accent:#ff7a59; --accent-d:#7a3625; --today:#ffe08a;
+    --tv:#5b7cfa; --tv-d:#33407a;
+    --movie:#2fbf9a; --movie-d:#1c6b58;
+    --ova:#e0a83e; --ova-d:#7a5e1e;
+    --special:#8f97b8; --special-d:#454a6b;
+    --row-h:66px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-0);color:var(--text-0);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;}
+  #app{max-width:100%;position:relative;}
+  button{font-family:inherit;}
+
+  .header{padding:24px 28px 14px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+  .header h1{margin:0 0 4px;font-size:24px;font-weight:600;letter-spacing:-0.02em;}
+  .header p{margin:0;color:var(--text-1);font-size:12.5px;}
+  .search-box{display:flex;align-items:center;gap:8px;background:var(--bg-2);border:1px solid var(--line);
+    border-radius:8px;padding:7px 12px;min-width:220px;}
+  .search-box input{background:transparent;border:none;outline:none;color:var(--text-0);font-size:13px;width:100%;}
+  .search-box svg{flex-shrink:0;opacity:0.6;}
+
+  .controls{display:flex;align-items:center;gap:10px;padding:0 28px 10px;flex-wrap:wrap;}
+  .controls select{background:var(--bg-2);border:1px solid var(--line);color:var(--text-0);
+    padding:8px 10px;border-radius:8px;font-size:13px;cursor:pointer;}
+  .controls select:hover{border-color:var(--accent);}
+  .btn{background:var(--bg-2);border:1px solid var(--line);color:var(--text-0);
+    padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer;}
+  .btn:hover{border-color:var(--accent);}
+
+  .toggle-group{display:flex;gap:6px;background:var(--bg-1);border:1px solid var(--line);border-radius:8px;padding:3px;}
+  .toggle-chip{padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text-1);
+    display:flex;align-items:center;gap:6px;user-select:none;border:1px solid transparent;}
+  .toggle-chip .dot{width:8px;height:8px;border-radius:2px;}
+  .toggle-chip.active{background:var(--bg-3);color:var(--text-0);border-color:var(--line);}
+  .toggle-chip.dim{opacity:0.4;}
+
+  .zoom-group{display:flex;gap:4px;background:var(--bg-1);border:1px solid var(--line);border-radius:8px;padding:3px;}
+  .zoom-btn{padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text-1);border:none;background:transparent;}
+  .zoom-btn.active{background:var(--bg-3);color:var(--text-0);}
+
+  .dropdown-wrap{position:relative;}
+  .dropdown-panel{position:absolute;top:calc(100% + 6px);left:0;background:var(--bg-2);border:1px solid var(--line);
+    border-radius:10px;padding:12px;min-width:220px;z-index:30;box-shadow:0 12px 32px rgba(0,0,0,0.45);display:none;}
+  .dropdown-panel.open{display:block;}
+  .dropdown-panel .genre-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;color:var(--text-1);cursor:pointer;}
+  .dropdown-panel .genre-row input{accent-color:var(--accent);}
+  .dropdown-panel .clear-link{font-size:11px;color:var(--accent);cursor:pointer;margin-top:6px;display:inline-block;}
+
+  .status{padding:60px 28px;text-align:center;color:var(--text-1);font-size:14px;}
+
+  .timeline-scroll{overflow-x:auto;overflow-y:hidden;padding-bottom:24px;position:relative;}
+  .timeline-inner{position:relative;padding-left:220px;}
+
+  .sidebar{position:absolute;left:0;top:0;width:220px;z-index:5;background:var(--bg-0);}
+  .sidebar-row{height:var(--row-h);display:flex;align-items:center;gap:10px;padding:0 12px;
+    border-bottom:1px solid var(--line-weak);border-right:1px solid var(--line);cursor:pointer;}
+  .sidebar-row:hover{background:var(--bg-1);}
+  .sidebar-row img{width:32px;height:44px;object-fit:cover;border-radius:4px;flex-shrink:0;background:var(--bg-2);}
+  .sidebar-row .name{font-size:12.5px;line-height:1.3;color:var(--text-0);
+    display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .sidebar-row.dimmed{opacity:0.3;}
+
+  .grid-header{height:52px;display:flex;position:relative;border-bottom:1px solid var(--line);}
+  .day-cell{flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-right:1px solid var(--line-weak);color:var(--text-1);font-size:11px;}
+  .day-cell .dow{color:var(--text-2);font-size:10px;}
+  .day-cell.today{color:var(--today);}
+  .day-cell.weekend{background:rgba(255,255,255,0.015);}
+  .month-label{position:absolute;top:-22px;font-size:11px;color:var(--accent);font-weight:600;}
+
+  .rows{position:relative;}
+  .grid-row{height:var(--row-h);position:relative;border-bottom:1px solid var(--line-weak);}
+  .grid-row.dimmed{opacity:0.25;}
+
+  .bar{position:absolute;top:9px;height:48px;border-radius:8px;overflow:hidden;
+    display:flex;align-items:center;padding:0 10px;cursor:pointer;
+    border:1px solid rgba(255,255,255,0.08);transition:transform .12s ease, filter .12s ease, box-shadow .12s ease;
+    background-size:cover;background-position:center;}
+  .bar:hover{transform:translateY(-2px);filter:brightness(1.08);}
+  .bar.highlighted{box-shadow:0 0 0 2px var(--today);}
+  .bar .bar-label{position:relative;z-index:1;font-size:12.5px;font-weight:600;color:#fff;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,0.6);}
+  .bar .bar-dur{position:relative;z-index:1;margin-left:auto;font-size:10.5px;color:rgba(255,255,255,0.85);
+    background:rgba(0,0,0,0.35);padding:2px 6px;border-radius:5px;flex-shrink:0;}
+  .bar .bar-track{position:absolute;left:0;bottom:0;height:3px;background:var(--today);z-index:1;}
+
+  .now-line{position:absolute;top:0;bottom:0;width:2px;background:var(--today);z-index:4;pointer-events:none;}
+  .now-tag{position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:var(--today);
+    color:#3a2c00;font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;white-space:nowrap;}
+
+  .tooltip{position:fixed;z-index:20;background:var(--bg-2);border:1px solid var(--line);
+    border-radius:10px;padding:0;font-size:12px;color:var(--text-0);width:260px;
+    pointer-events:none;box-shadow:0 12px 32px rgba(0,0,0,0.5);display:none;overflow:hidden;}
+  .tooltip .tip-top{display:flex;gap:10px;padding:10px 12px 8px;}
+  .tooltip img{width:40px;height:56px;object-fit:cover;border-radius:5px;flex-shrink:0;background:var(--bg-3);}
+  .tooltip .t-title{font-weight:600;font-size:13px;margin-bottom:3px;line-height:1.25;}
+  .tooltip .t-meta{color:var(--text-1);font-size:11px;}
+  .tooltip .next-badge{display:inline-block;margin-top:5px;background:var(--accent-d);color:#ffd9c9;
+    font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:6px;}
+  .tooltip .t-slot{padding:0 12px;font-size:11px;color:var(--text-1);margin-bottom:8px;}
+  .tooltip .t-progress{height:3px;background:var(--line);margin:0 12px 10px;border-radius:2px;overflow:hidden;}
+  .tooltip .t-progress-fill{height:100%;background:var(--accent);}
+
+  .overlay{position:fixed;inset:0;background:rgba(6,7,12,0.55);z-index:40;display:none;}
+  .overlay.open{display:block;}
+  .drawer{position:fixed;top:0;right:-420px;width:400px;max-width:92vw;height:100%;background:var(--bg-1);
+    border-left:1px solid var(--line);z-index:41;transition:right .22s ease;overflow-y:auto;}
+  .drawer.open{right:0;}
+  .drawer-banner{height:130px;background-size:cover;background-position:center;position:relative;background-color:var(--bg-3);}
+  .drawer-banner::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(14,16,24,0.1), var(--bg-1) 95%);}
+  .drawer-close{position:absolute;top:12px;right:12px;z-index:2;width:28px;height:28px;border-radius:50%;
+    background:rgba(0,0,0,0.5);color:#fff;border:none;cursor:pointer;font-size:16px;line-height:1;}
+  .drawer-body{padding:0 20px 24px;margin-top:-40px;position:relative;}
+  .drawer-poster{width:74px;height:104px;border-radius:8px;object-fit:cover;box-shadow:0 6px 18px rgba(0,0,0,0.5);
+    border:2px solid var(--bg-1);}
+  .drawer-title{font-size:17px;font-weight:600;margin:10px 0 2px;}
+  .drawer-native{font-size:12px;color:var(--text-2);margin-bottom:12px;}
+  .badge-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+  .badge{background:var(--bg-2);border:1px solid var(--line);border-radius:6px;padding:4px 9px;font-size:11.5px;color:var(--text-1);}
+  .badge.score{color:var(--today);border-color:var(--ova-d);}
+  .track-btn{width:100%;padding:9px;border-radius:8px;border:1px solid var(--accent);background:transparent;
+    color:var(--accent);font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;}
+  .track-btn.tracked{background:var(--accent);color:#2a1005;}
+  .section-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-2);
+    margin:16px 0 8px;}
+  .synopsis{font-size:13px;line-height:1.55;color:var(--text-1);}
+  .ep-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line-weak);font-size:12.5px;}
+  .ep-row .ep-check{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-2);}
+  .ep-row.aired .ep-check{background:var(--movie);border-color:var(--movie);color:#06231b;}
+  .ep-row.next .ep-check{border-color:var(--accent);color:var(--accent);}
+  .ep-row .ep-num{color:var(--text-0);min-width:70px;}
+  .ep-row .ep-date{color:var(--text-1);margin-left:auto;}
+  .link-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
+  .link-chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:7px;font-size:12px;
+    text-decoration:none;color:#fff;font-weight:600;}
+  .anilist-link{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-1);
+    text-decoration:none;margin-top:12px;}
+  .anilist-link:hover{color:var(--accent);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div>
+      <h1>Season timeline</h1>
+      <p>Airing windows for the current anime season, pulled live from AniList.</p>
+    </div>
+    <div class="search-box">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="searchInput" placeholder="Search title...">
+    </div>
+  </div>
+
+  <div class="controls">
+    <select id="seasonSelect"></select>
+    <select id="yearSelect"></select>
+    <button class="btn" id="refreshBtn">Refresh</button>
+    <button class="btn" id="todayBtn">Jump to today</button>
+
+    <div class="toggle-group" id="formatToggles">
+      <div class="toggle-chip active" data-fmt="TV"><span class="dot" style="background:var(--tv)"></span>TV</div>
+      <div class="toggle-chip active" data-fmt="MOVIE"><span class="dot" style="background:var(--movie)"></span>Movie</div>
+      <div class="toggle-chip active" data-fmt="OTHER"><span class="dot" style="background:var(--ova)"></span>OVA/ONA</div>
+      <div class="toggle-chip active" data-fmt="SPECIAL"><span class="dot" style="background:var(--special)"></span>Special</div>
+    </div>
+
+    <div class="dropdown-wrap">
+      <button class="btn" id="genreBtn">Genres ▾</button>
+      <div class="dropdown-panel" id="genrePanel"></div>
+    </div>
+
+    <select id="sortSelect">
+      <option value="date">Sort: release date</option>
+      <option value="score">Sort: score</option>
+      <option value="alpha">Sort: alphabetical</option>
+    </select>
+
+    <div class="zoom-group" id="zoomGroup">
+      <button class="zoom-btn active" data-w="64">Day</button>
+      <button class="zoom-btn" data-w="24">Week</button>
+      <button class="zoom-btn" data-w="9">Month</button>
+    </div>
+
+    <button class="btn" id="trackedBtn">☆ Tracked only</button>
+  </div>
+
+  <div id="statusBox" class="status">Loading season data from AniList…</div>
+  <div id="timelineWrap" style="display:none;">
+    <div class="timeline-scroll" id="scrollArea">
+      <div class="timeline-inner" id="inner">
+        <div class="sidebar" id="sidebar"></div>
+        <div class="grid-header" id="gridHeader"></div>
+        <div class="rows" id="rows"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+<div class="overlay" id="overlay"></div>
+<div class="drawer" id="drawer"></div>
+
+<script>
+const DAY_MS = 86400000;
+const ROW_H = 66;
+let DAY_W = 64;
+
+const state = {
+  formats: new Set(['TV','MOVIE','OTHER','SPECIAL']),
+  genres: new Set(),
+  search: '',
+  sort: 'date',
+  trackedOnly: false,
+  tracked: new Set()
+};
+
+let allMedia = [];
+let allItems = [];
+let currentMinDate = null;
+
+function seasonFor(date){
+  const m = date.getMonth();
+  if(m>=2 && m<=4) return "SPRING";
+  if(m>=5 && m<=7) return "SUMMER";
+  if(m>=8 && m<=10) return "FALL";
+  return "WINTER";
+}
+
+const now = new Date();
+const seasonSelect = document.getElementById('seasonSelect');
+const yearSelect = document.getElementById('yearSelect');
+['WINTER','SPRING','SUMMER','FALL'].forEach(s=>{
+  const o=document.createElement('option');o.value=s;o.textContent=s.charAt(0)+s.slice(1).toLowerCase();
+  if(s===seasonFor(now))o.selected=true;
+  seasonSelect.appendChild(o);
+});
+for(let y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
+  const o=document.createElement('option');o.value=y;o.textContent=y;
+  if(y===now.getFullYear())o.selected=true;
+  yearSelect.appendChild(o);
+}
+
+const QUERY = `
+query ($season: MediaSeason, $seasonYear: Int) {
+  Page(page: 1, perPage: 40) {
+    media(season: $season, seasonYear: $seasonYear, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+      id
+      format
+      status
+      episodes
+      genres
+      averageScore
+      description(asHtml: false)
+      siteUrl
+      source
+      studios(isMain: true) { nodes { name } }
+      title { romaji english native }
+      coverImage { medium large color }
+      bannerImage
+      startDate { year month day }
+      endDate { year month day }
+      nextAiringEpisode { airingAt episode }
+      airingSchedule(perPage: 20, notYetAired: false) { nodes { airingAt episode } }
+      externalLinks { site url color icon }
+    }
+  }
+}`;
+
+function toDate(d){
+  if(!d || !d.year) return null;
+  return new Date(Date.UTC(d.year, (d.month||1)-1, d.day||1));
+}
+function normFormat(f){
+  if(f==='TV' || f==='TV_SHORT') return 'TV';
+  if(f==='MOVIE') return 'MOVIE';
+  if(f==='OVA' || f==='ONA') return 'OTHER';
+  return 'SPECIAL';
+}
+function colorFor(fmt){
+  switch(fmt){
+    case 'MOVIE': return {c:'var(--movie)', d:'var(--movie-d)'};
+    case 'OTHER': return {c:'var(--ova)', d:'var(--ova-d)'};
+    case 'SPECIAL': return {c:'var(--special)', d:'var(--special-d)'};
+    default: return {c:'var(--tv)', d:'var(--tv-d)'};
+  }
+}
+
+async function fetchSeason(season, year){
+  const res = await fetch('https://graphql.anilist.co', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Accept':'application/json'},
+    body: JSON.stringify({query:QUERY, variables:{season, seasonYear:Number(year)}})
+  });
+  if(!res.ok) throw new Error('AniList request failed: '+res.status);
+  const json = await res.json();
+  if(json.errors) throw new Error(json.errors.map(e=>e.message).join(', '));
+  return json.data.Page.media;
+}
+
+function buildItems(media){
+  const items = [];
+  for(const m of media){
+    let start = toDate(m.startDate);
+    let end = toDate(m.endDate);
+    if(!start && m.nextAiringEpisode){
+      start = new Date(m.nextAiringEpisode.airingAt*1000 - (m.nextAiringEpisode.episode-1)*7*DAY_MS);
+    }
+    if(!start) continue;
+    const eps = m.episodes || (m.format==='MOVIE'?1:12);
+    if(!end){
+      if(m.nextAiringEpisode){
+        end = new Date(m.nextAiringEpisode.airingAt*1000 + (eps - m.nextAiringEpisode.episode)*7*DAY_MS + DAY_MS);
+      } else {
+        end = new Date(start.getTime() + Math.max(eps,1)*7*DAY_MS);
+      }
+    }
+    if(end <= start) end = new Date(start.getTime() + DAY_MS);
+    const airedCount = m.airingSchedule ? m.airingSchedule.nodes.filter(n=>n.airingAt*1000 <= Date.now()).length : 0;
+    items.push({
+      raw:m,
+      id:m.id,
+      title: m.title.english || m.title.romaji,
+      native: m.title.native,
+      format: normFormat(m.format),
+      episodes: eps,
+      airedCount,
+      genres: m.genres || [],
+      score: m.averageScore,
+      studio: (m.studios.nodes[0] && m.studios.nodes[0].name) || 'Unknown studio',
+      source: m.source,
+      cover: m.coverImage && (m.coverImage.large || m.coverImage.medium),
+      banner: m.bannerImage,
+      synopsis: (m.description||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(),
+      siteUrl: m.siteUrl,
+      links: m.externalLinks || [],
+      nextEp: m.nextAiringEpisode,
+      schedule: (m.airingSchedule && m.airingSchedule.nodes) || [],
+      start, end
+    });
+  }
+  return items;
+}
+
+function allGenres(){
+  const set = new Set();
+  allItems.forEach(i=>i.genres.forEach(g=>set.add(g)));
+  return Array.from(set).sort();
+}
+
+function buildGenrePanel(){
+  const panel = document.getElementById('genrePanel');
+  const genres = allGenres();
+  panel.innerHTML = genres.map(g=>`
+    <label class="genre-row"><input type="checkbox" value="${g}" ${state.genres.has(g)?'checked':''}> ${g}</label>
+  `).join('') + `<div class="clear-link" id="clearGenres">Clear all</div>`;
+  panel.querySelectorAll('input').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.checked) state.genres.add(cb.value); else state.genres.delete(cb.value);
+      applyFiltersAndRender();
+    });
+  });
+  document.getElementById('clearGenres').addEventListener('click', ()=>{
+    state.genres.clear();
+    buildGenrePanel();
+    applyFiltersAndRender();
+  });
+}
+
+function getFiltered(){
+  let items = allItems.filter(i=>{
+    if(!state.formats.has(i.format)) return false;
+    if(state.genres.size && !i.genres.some(g=>state.genres.has(g))) return false;
+    if(state.trackedOnly && !state.tracked.has(i.id)) return false;
+    return true;
+  });
+  if(state.sort==='date') items.sort((a,b)=>a.start-b.start);
+  else if(state.sort==='score') items.sort((a,b)=>(b.score||0)-(a.score||0));
+  else if(state.sort==='alpha') items.sort((a,b)=>a.title.localeCompare(b.title));
+  return items;
+}
+
+function render(items){
+  const statusBox = document.getElementById('statusBox');
+  const wrap = document.getElementById('timelineWrap');
+  if(!allItems.length){
+    statusBox.style.display='block';
+    statusBox.textContent='No airing anime found for this season.';
+    wrap.style.display='none';
+    return;
+  }
+  statusBox.style.display='none';
+  wrap.style.display='block';
+
+  let minDate = new Date(Math.min(...allItems.map(i=>i.start.getTime())));
+  let maxDate = new Date(Math.max(...allItems.map(i=>i.end.getTime())));
+  minDate = new Date(minDate.getTime() - 3*DAY_MS);
+  maxDate = new Date(maxDate.getTime() + 3*DAY_MS);
+  currentMinDate = minDate;
+  const totalDays = Math.ceil((maxDate-minDate)/DAY_MS);
+
+  const gridHeader = document.getElementById('gridHeader');
+  const rows = document.getElementById('rows');
+  const sidebar = document.getElementById('sidebar');
+  gridHeader.innerHTML=''; rows.innerHTML=''; sidebar.innerHTML='';
+
+  const today = new Date(); today.setUTCHours(0,0,0,0);
+  const dowNames = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  let lastMonth = -1;
+  for(let i=0;i<totalDays;i++){
+    const d = new Date(minDate.getTime()+i*DAY_MS);
+    const cell = document.createElement('div');
+    cell.className='day-cell';
+    cell.style.width=DAY_W+'px';
+    const isToday = d.getTime()===today.getTime();
+    const dow = d.getUTCDay();
+    if(isToday) cell.classList.add('today');
+    if(dow===0||dow===6) cell.classList.add('weekend');
+    if(DAY_W>=20){
+      cell.innerHTML = `<span class="dow">${dowNames[dow]}</span><span>${d.getUTCDate()}</span>`;
+    } else if(dow===1){
+      cell.innerHTML = `<span>${d.getUTCDate()}</span>`;
+    }
+    if(d.getUTCMonth()!==lastMonth){
+      lastMonth=d.getUTCMonth();
+      const label=document.createElement('div');
+      label.className='month-label';
+      label.style.left=(i*DAY_W)+'px';
+      label.textContent=d.toLocaleString('en-US',{month:'long',timeZone:'UTC'});
+      gridHeader.appendChild(label);
+    }
+    gridHeader.appendChild(cell);
+  }
+  gridHeader.style.width=(totalDays*DAY_W)+'px';
+  rows.style.width=(totalDays*DAY_W)+'px';
+
+  const visibleIds = new Set(items.map(i=>i.id));
+
+  allItems.forEach((item)=>{
+    const isVisible = visibleIds.has(item.id);
+    const sRow = document.createElement('div');
+    sRow.className='sidebar-row'+(isVisible?'':' dimmed');
+    sRow.innerHTML = `${item.cover?`<img src="${item.cover}" alt="">`:'<div style="width:32px;height:44px;background:var(--bg-2);border-radius:4px"></div>'}<div class="name">${item.title}</div>`;
+    sRow.addEventListener('click', ()=>openDrawer(item));
+    sidebar.appendChild(sRow);
+
+    const row = document.createElement('div');
+    row.className='grid-row'+(isVisible?'':' dimmed');
+    row.style.backgroundImage = `linear-gradient(to right, var(--line-weak) 1px, transparent 1px)`;
+    row.style.backgroundSize = DAY_W+'px 100%';
+
+    const left = Math.floor((item.start-minDate)/DAY_MS)*DAY_W;
+    const width = Math.max(Math.ceil((item.end-item.start)/DAY_MS)*DAY_W, DAY_W*0.6);
+    const col = colorFor(item.format);
+    const durDays = Math.round((item.end-item.start)/DAY_MS);
+
+    const bar = document.createElement('div');
+    bar.className='bar';
+    bar.dataset.id = item.id;
+    bar.style.left=left+'px';
+    bar.style.width=width+'px';
+    bar.style.background = `linear-gradient(90deg, ${col.d}, ${col.c})`;
+    if(item.cover){
+      bar.style.backgroundImage = `linear-gradient(90deg, rgba(10,11,20,0.55), rgba(10,11,20,0.15)), url(${item.cover})`;
+    }
+    const progressPct = item.episodes ? Math.min(100, Math.round(item.airedCount/item.episodes*100)) : 0;
+    bar.innerHTML = `<span class="bar-label">${item.title}</span><span class="bar-dur">${durDays}d</span>
+      <div class="bar-track" style="width:${progressPct}%"></div>`;
+    bar.addEventListener('mouseenter', e=>showTip(e, item));
+    bar.addEventListener('mousemove', e=>moveTip(e));
+    bar.addEventListener('mouseleave', hideTip);
+    bar.addEventListener('click', ()=>openDrawer(item));
+    row.appendChild(bar);
+    rows.appendChild(row);
+  });
+  rows.style.height=(allItems.length*ROW_H)+'px';
+  sidebar.style.height=(allItems.length*ROW_H + 52)+'px';
+
+  const nowOffset = Math.floor((Date.now()-minDate.getTime())/DAY_MS)*DAY_W + DAY_W/2;
+  if(nowOffset>=0 && nowOffset<=totalDays*DAY_W){
+    const line = document.createElement('div');
+    line.className='now-line';
+    line.style.left=nowOffset+'px';
+    line.style.height=(allItems.length*ROW_H)+'px';
+    const tag=document.createElement('div');
+    tag.className='now-tag';
+    tag.textContent='Today';
+    line.appendChild(tag);
+    rows.appendChild(line);
+  }
+  document.getElementById('inner').dataset.nowOffset = nowOffset;
+}
+
+function applyFiltersAndRender(){
+  const items = getFiltered();
+  render(items);
+  if(state.search.trim()){
+    highlightSearch(state.search.trim().toLowerCase());
+  }
+}
+
+function highlightSearch(q){
+  document.querySelectorAll('.bar').forEach(b=>b.classList.remove('highlighted'));
+  const match = allItems.find(i=>i.title.toLowerCase().includes(q));
+  if(!match) return;
+  const bar = document.querySelector('.bar[data-id="'+match.id+'"]');
+  if(bar){
+    bar.classList.add('highlighted');
+    const scrollArea = document.getElementById('scrollArea');
+    scrollArea.scrollLeft = Math.max(parseInt(bar.style.left)-200,0);
+    bar.scrollIntoView({behavior:'smooth', block:'nearest', inline:'nearest'});
+  }
+}
+
+function fmtDate(d){ return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}); }
+function fmtDateTime(ts){
+  const d = new Date(ts*1000);
+  return d.toLocaleString('en-US',{weekday:'long',hour:'numeric',minute:'2-digit',timeZone:'UTC'})+' UTC';
+}
+function countdown(ts){
+  const diff = ts*1000 - Date.now();
+  if(diff<=0) return 'aired';
+  const days = Math.floor(diff/DAY_MS);
+  const hours = Math.floor((diff%DAY_MS)/3600000);
+  return days>0 ? `${days}d ${hours}h` : `${hours}h`;
+}
+
+function showTip(e, item){
+  const tip = document.getElementById('tooltip');
+  tip.style.display='block';
+  const progressPct = item.episodes ? Math.min(100, Math.round(item.airedCount/item.episodes*100)) : 0;
+  let nextBadge = '';
+  if(item.nextEp){
+    nextBadge = `<span class="next-badge">Ep ${item.nextEp.episode} in ${countdown(item.nextEp.airingAt)}</span>`;
+  } else if(item.airedCount>=item.episodes && item.episodes){
+    nextBadge = `<span class="next-badge">Finished</span>`;
+  }
+  let slot = '';
+  if(item.nextEp) slot = fmtDateTime(item.nextEp.airingAt);
+  else if(item.schedule.length) slot = fmtDateTime(item.schedule[0].airingAt);
+
+  tip.innerHTML = `
+    <div class="tip-top">
+      ${item.cover?`<img src="${item.cover}" alt="">`:''}
+      <div>
+        <div class="t-title">${item.title}</div>
+        <div class="t-meta">${item.format} · ${item.episodes||'?'} eps · ${fmtDate(item.start)} → ${fmtDate(item.end)}</div>
+        ${nextBadge}
+      </div>
+    </div>
+    ${slot?`<div class="t-slot">Airs ${slot}</div>`:''}
+    <div class="t-progress"><div class="t-progress-fill" style="width:${progressPct}%"></div></div>
+  `;
+  moveTip(e);
+}
+function moveTip(e){
+  const tip = document.getElementById('tooltip');
+  let x = e.clientX+16, y = e.clientY+16;
+  if(x + 260 > window.innerWidth) x = e.clientX - 276;
+  if(y + 160 > window.innerHeight) y = e.clientY - 160;
+  tip.style.left=x+'px';
+  tip.style.top=y+'px';
+}
+function hideTip(){document.getElementById('tooltip').style.display='none';}
+
+function sourceLabel(s){
+  if(!s) return 'Unknown';
+  return s.replace(/_/g,' ').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+}
+
+function openDrawer(item){
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('overlay');
+  const isTracked = state.tracked.has(item.id);
+
+  const airedRows = item.schedule.map(n=>({ep:n.episode, ts:n.airingAt, aired:n.airingAt*1000<=Date.now()}));
+  let epRows = airedRows.slice(-6);
+  if(item.nextEp) epRows.push({ep:item.nextEp.episode, ts:item.nextEp.airingAt, aired:false, next:true});
+
+  const links = item.links.filter(l=>l.type!=='INFO'&&l.url && (l.site&&/Crunchyroll|Netflix|Muse|Ani-One|Hidive|Funimation|Amazon|Disney/i.test(l.site)));
+
+  drawer.innerHTML = `
+    <div class="drawer-banner" style="background-image:url('${item.banner||item.cover||''}')">
+      <button class="drawer-close" id="drawerClose">×</button>
+    </div>
+    <div class="drawer-body">
+      <img class="drawer-poster" src="${item.cover||''}" alt="">
+      <div class="drawer-title">${item.title}</div>
+      <div class="drawer-native">${item.native||''}</div>
+      <div class="badge-row">
+        ${item.score?`<span class="badge score">★ ${(item.score/10).toFixed(1)} / 10</span>`:''}
+        <span class="badge">${item.studio}</span>
+        <span class="badge">${sourceLabel(item.source)}</span>
+        <span class="badge">${item.format} · ${item.episodes||'?'} eps</span>
+      </div>
+      <button class="track-btn ${isTracked?'tracked':''}" id="trackToggle">${isTracked?'★ Tracked':'☆ Track this show'}</button>
+
+      <div class="section-title">Synopsis</div>
+      <div class="synopsis">${item.synopsis ? item.synopsis.slice(0,220)+(item.synopsis.length>220?'…':'') : 'No synopsis available.'}</div>
+
+      <div class="section-title">Episode tracker</div>
+      ${epRows.length ? epRows.map(r=>`
+        <div class="ep-row ${r.aired?'aired':''} ${r.next?'next':''}">
+          <span class="ep-check">${r.aired?'✓':(r.next?'▶':'')}</span>
+          <span class="ep-num">Episode ${r.ep}</span>
+          <span class="ep-date">${fmtDate(new Date(r.ts*1000))}</span>
+        </div>`).join('') : '<div class="synopsis">No schedule data yet.</div>'}
+      <div class="ep-row" style="border-bottom:none;">
+        <span class="ep-check"></span>
+        <span class="ep-num" style="color:var(--text-1)">Est. finale</span>
+        <span class="ep-date">${fmtDate(item.end)}</span>
+      </div>
+
+      ${links.length?`<div class="section-title">Where to watch</div>
+      <div class="link-row">${links.map(l=>`<a class="link-chip" style="background:${l.color||'#333'}" href="${l.url}" target="_blank" rel="noopener">${l.site}</a>`).join('')}</div>`:''}
+
+      <a class="anilist-link" href="${item.siteUrl}" target="_blank" rel="noopener">View on AniList ↗</a>
+    </div>
+  `;
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+  document.getElementById('trackToggle').addEventListener('click', ()=>toggleTrack(item.id));
+  overlay.classList.add('open');
+  drawer.classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+}
+document.getElementById('overlay').addEventListener('click', closeDrawer);
+
+async function toggleTrack(id){
+  if(state.tracked.has(id)){
+    state.tracked.delete(id);
+    try{ await window.storage.delete('tracked:'+id); }catch(e){}
+  } else {
+    state.tracked.add(id);
+    try{ await window.storage.set('tracked:'+id, '1'); }catch(e){}
+  }
+  const item = allItems.find(i=>i.id===id);
+  if(item) openDrawer(item);
+  applyFiltersAndRender();
+}
+
+async function loadTracked(){
+  try{
+    const res = await window.storage.list('tracked:');
+    if(res && res.keys){
+      res.keys.forEach(k=>state.tracked.add(Number(k.replace('tracked:',''))));
+    }
+  }catch(e){}
+}
+
+async function load(){
+  const statusBox = document.getElementById('statusBox');
+  const wrap = document.getElementById('timelineWrap');
+  statusBox.style.display='block';
+  statusBox.textContent='Loading season data from AniList…';
+  wrap.style.display='none';
+  try{
+    allMedia = await fetchSeason(seasonSelect.value, yearSelect.value);
+    allItems = buildItems(allMedia);
+    await loadTracked();
+    buildGenrePanel();
+    applyFiltersAndRender();
+  }catch(err){
+    statusBox.textContent = 'Could not reach AniList (' + err.message + '). This can happen if the artifact sandbox blocks the request — try opening this file outside claude.ai, or check your network settings.';
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', load);
+seasonSelect.addEventListener('change', load);
+yearSelect.addEventListener('change', load);
+document.getElementById('todayBtn').addEventListener('click', ()=>{
+  const scrollArea = document.getElementById('scrollArea');
+  const inner = document.getElementById('inner');
+  const off = Number(inner.dataset.nowOffset||0);
+  scrollArea.scrollLeft = Math.max(off-300,0);
+});
+
+document.querySelectorAll('.toggle-chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    const fmt = chip.dataset.fmt;
+    if(state.formats.has(fmt)){ state.formats.delete(fmt); chip.classList.remove('active'); chip.classList.add('dim'); }
+    else { state.formats.add(fmt); chip.classList.add('active'); chip.classList.remove('dim'); }
+    applyFiltersAndRender();
+  });
+});
+
+const genreBtn = document.getElementById('genreBtn');
+const genrePanel = document.getElementById('genrePanel');
+genreBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  genrePanel.classList.toggle('open');
+});
+document.addEventListener('click', (e)=>{
+  if(!genrePanel.contains(e.target) && e.target!==genreBtn) genrePanel.classList.remove('open');
+});
+
+document.getElementById('sortSelect').addEventListener('change', (e)=>{
+  state.sort = e.target.value;
+  applyFiltersAndRender();
+});
+
+document.getElementById('searchInput').addEventListener('input', (e)=>{
+  state.search = e.target.value;
+  if(state.search.trim()) highlightSearch(state.search.trim().toLowerCase());
+  else document.querySelectorAll('.bar').forEach(b=>b.classList.remove('highlighted'));
+});
+
+document.querySelectorAll('.zoom-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.zoom-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    DAY_W = Number(btn.dataset.w);
+    applyFiltersAndRender();
+  });
+});
+
+const trackedBtn = document.getElementById('trackedBtn');
+trackedBtn.addEventListener('click', ()=>{
+  state.trackedOnly = !state.trackedOnly;
+  trackedBtn.textContent = state.trackedOnly ? '★ Tracked only' : '☆ Tracked only';
+  trackedBtn.style.borderColor = state.trackedOnly ? 'var(--accent)' : 'var(--line)';
+  applyFiltersAndRender();
+});
+
+load();
+</script>
+</body>
+</html>
